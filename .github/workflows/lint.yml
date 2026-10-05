@@ -10,7 +10,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: lint-${{ github.ref }}
+  group: lint-${{ github.event_name == 'pull_request_target' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
   cancel-in-progress: true
 
 jobs:
