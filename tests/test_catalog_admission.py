@@ -72,6 +72,13 @@ class CatalogAdmissionTest(unittest.TestCase):
                 with self.assertRaises(AdmissionError):
                     get_admission(self.repo, self.base, head)
 
+    def test_rejects_category_symlink_blob(self):
+        (self.repo / "integration").unlink()
+        (self.repo / "integration").symlink_to("blacklist")
+        head = self.commit_head()
+        with self.assertRaisesRegex(AdmissionError, "regular non-executable file"):
+            get_admission(self.repo, self.base, head)
+
     def test_maintenance_allows_docs_but_requires_label_for_registry_changes(self):
         (self.repo / "README.md").write_text("maintenance\n", encoding="utf-8")
         documentation_head = self.commit_head()

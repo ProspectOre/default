@@ -21,7 +21,7 @@ jobs:
       - name: Check out trusted base revision
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.sha || github.sha }}
           persist-credentials: false
 
       - name: Prepare the exact candidate data snapshot
@@ -30,7 +30,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          if [ "$EVENT_NAME" = "pull_request" ]; then
+          if [ "$EVENT_NAME" = "pull_request_target" ]; then
             git fetch --no-tags --depth=1 origin \
               "refs/pull/$PR_NUMBER/head:refs/remotes/origin/pr/$PR_NUMBER"
             actual_head=$(git rev-parse "refs/remotes/origin/pr/$PR_NUMBER")
@@ -57,7 +57,7 @@ jobs:
       - name: Check out trusted base revision
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.sha || github.sha }}
           persist-credentials: false
 
       - name: Prepare the exact candidate data snapshot
@@ -66,7 +66,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          if [ "$EVENT_NAME" = "pull_request" ]; then
+          if [ "$EVENT_NAME" = "pull_request_target" ]; then
             git fetch --no-tags --depth=1 origin \
               "refs/pull/$PR_NUMBER/head:refs/remotes/origin/pr/$PR_NUMBER"
             actual_head=$(git rev-parse "refs/remotes/origin/pr/$PR_NUMBER")
@@ -94,7 +94,7 @@ jobs:
       - name: Check out trusted base revision
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.sha || github.sha }}
           persist-credentials: false
 
       - name: Prepare the exact candidate data snapshot
@@ -103,7 +103,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          if [ "$EVENT_NAME" = "pull_request" ]; then
+          if [ "$EVENT_NAME" = "pull_request_target" ]; then
             git fetch --no-tags --depth=1 origin \
               "refs/pull/$PR_NUMBER/head:refs/remotes/origin/pr/$PR_NUMBER"
             actual_head=$(git rev-parse "refs/remotes/origin/pr/$PR_NUMBER")

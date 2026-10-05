@@ -26,6 +26,13 @@ def _git(repo_path, *args):
 
 
 def _json_at(repo_path, revision, path):
+    entry = _git(repo_path, "ls-tree", revision, "--", path)
+    if not entry:
+        raise AdmissionError(f"{path} does not exist at {revision}")
+    mode, kind, _ = entry.split(None, 2)
+    if mode != "100644" or kind != "blob":
+        raise AdmissionError(f"{path} at {revision} must be a regular non-executable file")
+
     content = _git(repo_path, "show", f"{revision}:{path}")
     try:
         return json.loads(content)
@@ -37,7 +44,7 @@ def get_admission(repo_path, base_sha, head_sha):
     """Return the one permitted new repository from an exact base/head diff.
 
     The caller must run this code from a trusted base checkout and supply
-    immutable commit IDs obtained from the pull_request event.
+    immutable commit IDs obtained from the pull_request_target event.
     """
     if not base_sha or not head_sha or base_sha == head_sha:
         raise AdmissionError("A distinct immutable base and head are required")
