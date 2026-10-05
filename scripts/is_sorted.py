@@ -1,4 +1,6 @@
 import json
+import sys
+from pathlib import Path
 
 categories = [
     "blacklist",
@@ -10,9 +12,10 @@ categories = [
     "template",
     "theme",
 ]
+directory = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(".")
 
 for category in categories:
-    with open(category, "r") as cat_file:
+    with (directory / category).open("r", encoding="utf-8") as cat_file:
         content = json.loads(cat_file.read())
         if content != sorted(content, key=str.casefold):
             print(f"{category} is not sorted correctly")

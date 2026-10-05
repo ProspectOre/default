@@ -32,42 +32,63 @@ jobs:
           HAS_REMOVAL: ${{ contains(github.event.pull_request.labels.*.name, 'remove-repositories') }}
           HAS_NEW_REPO: ${{ contains(github.event.pull_request.labels.*.name, 'New default repository') }}
           HAS_RENAMED: ${{ contains(github.event.pull_request.labels.*.name, 'renamed-repositories') }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPOSITORY: ${{ github.repository }}
         run: |
-          if [ "$HAS_NEW_REPO" == "true" ]; then
-            echo "run_type=new-repository" >> $GITHUB_OUTPUT
-          elif [ "$HAS_RENAMED" == "true" ]; then
-            echo "run_type=rename" >> $GITHUB_OUTPUT
-          elif [ "$HAS_REMOVAL" == "true" ]; then
-            echo "run_type=removal" >> $GITHUB_OUTPUT
+          if [ "$HAS_NEW_REPO" = "true" ]; then
+            printf 'run_type=new-repository\n' >> "$GITHUB_OUTPUT"
+          elif [ "$HAS_RENAMED" = "true" ]; then
+            printf 'run_type=rename\n' >> "$GITHUB_OUTPUT"
+          elif [ "$HAS_REMOVAL" = "true" ]; then
+            printf 'run_type=removal\n' >> "$GITHUB_OUTPUT"
+          elif [ "$HEAD_REPOSITORY" = "$BASE_REPOSITORY" ]; then
+            printf 'run_type=maintenance\n' >> "$GITHUB_OUTPUT"
           else
-            echo "run_type=unknown" >> $GITHUB_OUTPUT
+            printf 'run_type=unknown\n' >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Check out repository
-        if: steps.run_type.outputs.run_type == 'new-repository'
-        uses: actions/checkout@v7.0.0
+      - name: Check out trusted base revision
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
 
-      - name: Set up Python
-        if: steps.run_type.outputs.run_type == 'new-repository'
-        uses: actions/setup-python@v7.0.0
-        with:
-          python-version-file: ".python-version"
+      - name: Fetch exact pull request head
+        if: steps.run_type.outputs.run_type == 'new-repository' || steps.run_type.outputs.run_type == 'maintenance'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin \
+            "refs/pull/$PR_NUMBER/head:refs/remotes/origin/pr/$PR_NUMBER"
+          actual_head=$(git rev-parse "refs/remotes/origin/pr/$PR_NUMBER")
+          if [ "$actual_head" != "$HEAD_SHA" ]; then
+            echo "::error::The pull request head changed during admission; rerun checks"
+            exit 1
+          fi
 
-      - name: Clone origin
-        if: steps.run_type.outputs.run_type == 'new-repository'
-        run: git clone --depth 1 https://github.com/hacs/default /tmp/repositories/default
+      - name: Reject unlabelled registry data changes
+        if: steps.run_type.outputs.run_type == 'maintenance'
+        run: python3 -m scripts.changed.maintenance
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
       - name: Set repository
         id: repository
         if: steps.run_type.outputs.run_type == 'new-repository'
-        run: echo "repository=$(python3 -m scripts.changed.repo)" >> $GITHUB_OUTPUT
+        run: printf 'repository=%s\n' "$(python3 -m scripts.changed.repo)" >> "$GITHUB_OUTPUT"
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
       - name: Set category
         id: category
         if: steps.run_type.outputs.run_type == 'new-repository'
-        run: echo "category=$(python3 -m scripts.changed.category)" >> $GITHUB_OUTPUT
+        run: printf 'category=%s\n' "$(python3 -m scripts.changed.category)" >> "$GITHUB_OUTPUT"
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
   owner:
     runs-on: ubuntu-latest
@@ -76,12 +97,13 @@ jobs:
     if: needs.preflight.outputs.run_type == 'new-repository'
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7.0.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: ".python-version"
           cache: "pip"
@@ -101,12 +123,13 @@ jobs:
     name: Editable PR
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7.0.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: ".python-version"
           cache: "pip"
@@ -126,12 +149,13 @@ jobs:
     if: needs.preflight.outputs.run_type == 'new-repository'
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7.0.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: ".python-version"
           cache: "pip"
@@ -153,12 +177,13 @@ jobs:
     if: needs.preflight.outputs.run_type == 'new-repository'
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7.0.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: ".python-version"
           cache: "pip"
@@ -179,12 +204,13 @@ jobs:
     if: needs.preflight.outputs.run_type == 'new-repository'
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7.0.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: ".python-version"
           cache: "pip"
@@ -205,8 +231,9 @@ jobs:
     if: needs.preflight.outputs.category == 'integration' && needs.preflight.outputs.run_type == 'new-repository'
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
 
       - name: Clone new addition
@@ -228,7 +255,7 @@ jobs:
     if: needs.preflight.outputs.run_type == 'new-repository'
     steps:
       - name: HACS action
-        uses: hacs/action@main
+        uses: hacs/action@1ebf01c408f29afcb6406bd431bc98fd8cbb15aa # main as of 2026-10-04
         with:
           repository: ${{needs.preflight.outputs.repository}}
           category: ${{needs.preflight.outputs.category}}
@@ -247,9 +274,39 @@ jobs:
       - hacs
     if: always()
     steps:
-      - name: Fail if any dependency failed or was cancelled
+      - name: Require the expected admission jobs to succeed
         run: |
-          if ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}; then
+          if [ "${{ needs.preflight.outputs.run_type }}" = "maintenance" ]; then
+            if [ "${{ needs.preflight.result }}" != "success" ] || \
+               [ "${{ needs.editable.result }}" != "success" ]; then
+              echo "::error::Trusted maintenance requires successful preflight and editable checks"
+              exit 1
+            fi
+            echo "Trusted same-repository maintenance checks succeeded"
+            exit 0
+          fi
+          if [ "${{ needs.preflight.outputs.run_type }}" != "new-repository" ]; then
+            echo "::error::Only new-repository admission and trusted same-repository maintenance are supported"
             exit 1
           fi
-          exit 0
+          for result in \
+            "${{ needs.preflight.result }}" \
+            "${{ needs.owner.result }}" \
+            "${{ needs.editable.result }}" \
+            "${{ needs.releases.result }}" \
+            "${{ needs.removed.result }}" \
+            "${{ needs.existing.result }}" \
+            "${{ needs.hacs.result }}"; do
+            if [ "$result" != "success" ]; then
+              echo "::error::A required admission job did not succeed (result: $result)"
+              exit 1
+            fi
+          done
+          if [ "${{ needs.preflight.outputs.category }}" = "integration" ] && \
+             [ "${{ needs.hassfest.result }}" != "success" ]; then
+            echo "::error::Hassfest is required for integration admission"
+            exit 1
+          fi
+          if [ "${{ needs.preflight.outputs.run_type }}" = "new-repository" ]; then
+            echo "All required new-repository admission jobs succeeded"
+          fi
