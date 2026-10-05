@@ -1,26 +1,15 @@
-import json
-from scripts.changed.category import get_category
+import os
 
-DEFAULT = "/tmp/repositories/default"
+from scripts.changed.catalog import get_admission
 
 
 def get_repo():
-    category = get_category()
-    with open(f"{DEFAULT}/{category}", "r") as default:
-        current = json.loads(default.read())
-
-    with open(category, "r") as default:
-        new = json.loads(default.read())
-
-    for repo in current:
-        if repo in new:
-            new.remove(repo)
-
-    if len(new) != 1:
-        print(f"Bad data {new}")
-        exit(1)
-
-    return new.pop()
+    _, repository = get_admission(
+        os.environ.get("GITHUB_WORKSPACE", "."),
+        os.environ.get("BASE_SHA"),
+        os.environ.get("HEAD_SHA"),
+    )
+    return repository
 
 
 if __name__ == "__main__":
