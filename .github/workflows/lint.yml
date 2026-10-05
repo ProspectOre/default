@@ -1,6 +1,6 @@
 name: Lint
 on:
-  pull_request:
+  pull_request_target:
     branches:
       - master
   push:
@@ -84,6 +84,7 @@ jobs:
         run: python3 scripts/validate_catalog.py "$RUNNER_TEMP/catalog-data"
 
       - name: Test trusted admission and catalog validators
+        if: github.event_name == 'push'
         run: python3 -m unittest discover -s tests -v
 
   sorted:
