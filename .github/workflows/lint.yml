@@ -80,6 +80,11 @@ jobs:
             git show "$HEAD_SHA:$path" > "$RUNNER_TEMP/catalog-data/$path"
           done
 
+      - name: Install trusted schema validation dependencies
+        run: >-
+          python3 -m pip install --disable-pip-version-check --no-input
+          jsonschema==4.25.1 rfc3986-validator==0.1.1
+
       - name: Validate trusted catalog schemas
         run: python3 scripts/validate_catalog.py "$RUNNER_TEMP/catalog-data"
 

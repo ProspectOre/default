@@ -2,10 +2,13 @@ import json
 import re
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
+
+from jsonschema import Draft7Validator, FormatChecker
+from rfc3986_validator import validate_rfc3986
 
 
 REPOSITORY_PATTERN = re.compile(r"^[\w.-]+/[\w.-]+$")
+CRITICAL_SCHEMA = Path(__file__).resolve().parents[1] / "tools/jsonschema/critical.schema.json"
 REPOSITORY_FILES = (
     "appdaemon",
     "blacklist",
@@ -41,21 +44,18 @@ def validate(directory):
             _repository(item, filename)
 
     critical = _load(directory / "critical")
-    if not isinstance(critical, list):
-        raise ValueError("critical must be an array")
+    schema = _load(CRITICAL_SCHEMA)
+    if not validate_rfc3986("mailto:validator@example.com", rule="URI") or validate_rfc3986(
+        "https://bad host/", rule="URI"
+    ):
+        raise RuntimeError("RFC 3986 URI format validation is unavailable")
+    validator = Draft7Validator(schema, format_checker=FormatChecker(formats=("uri",)))
+    error = next(validator.iter_errors(critical), None)
+    if error is not None:
+        location = ".".join(map(str, error.absolute_path)) or "critical"
+        raise ValueError(f"{location}: {error.message}")
     for index, item in enumerate(critical):
-        source = f"critical[{index}]"
-        if not isinstance(item, dict):
-            raise ValueError(f"{source} must be an object")
-        for key in ("repository", "reason", "link"):
-            if key not in item:
-                raise ValueError(f"{source} is missing required property {key!r}")
-        _repository(item["repository"], source)
-        if not isinstance(item["reason"], str) or not isinstance(item["link"], str):
-            raise ValueError(f"{source} reason and link must be strings")
-        parsed_link = urlparse(item["link"])
-        if not parsed_link.scheme or not parsed_link.netloc:
-            raise ValueError(f"{source} link must be a URI")
+        _repository(item["repository"], f"critical[{index}]")
 
     removed = _load(directory / "removed")
     if not isinstance(removed, list):
